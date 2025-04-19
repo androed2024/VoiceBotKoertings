@@ -18,10 +18,8 @@ client = Client(account_sid, auth_token)
 
 # Google Sheet-Konfiguration
 google_sheet_id = os.getenv("GOOGLE_SHEET_ID")
-credentials_file = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE")
-
-print("📄 SHEET ID:", google_sheet_id)
-print("🔑 JSON FILE:", credentials_file)
+credentials_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+creds_dict = json.loads(credentials_json)
 
 
 @app.route("/send-sms", methods=["POST"])
@@ -67,13 +65,9 @@ def save_transcript():
             "https://spreadsheets.google.com/feeds",
             "https://www.googleapis.com/auth/drive",
         ]
-        creds = ServiceAccountCredentials.from_json_keyfile_name(
-            credentials_file, scope
-        )
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
         client = gspread.authorize(creds)
         sheet = client.open_by_key(google_sheet_id).sheet1
-
-        print("🔍 Verfügbare Sheets:", client.open_by_key(google_sheet_id).worksheets())
 
         sheet.append_row([today, caller, transcript])
         return jsonify({"status": "success", "message": "Transcript gespeichert"}), 200
@@ -121,5 +115,5 @@ def save_transcript():
 
 
 if __name__ == "__main__":
-    print("Server wird gestartet...")
-    app.run(debug=True)
+    print("Server wird gestartet ....")
+    app.run(host="0.0.0.0", port=10000)
