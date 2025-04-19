@@ -1,0 +1,7 @@
+flask
+twilio
+python-dotenv
+# pip freeze > requirements.txt
+
+gspread
+oauth2client
