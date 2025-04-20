@@ -51,17 +51,26 @@ def send_sms():
 @app.route("/save-transcript", methods=["POST"])
 def save_transcript():
     data = request.json
-    caller = data.get("caller")
-    transcript = data.get("transcript")
-    today = datetime.now().strftime("%d.%m.%Y")
 
-    if not caller or not transcript:
+    # Nur reagieren, wenn es ein Post-Call-Event ist
+    if data.get("event") != "post_call_data":
         return (
-            jsonify({"status": "error", "message": "Missing 'caller' or 'transcript'"}),
-            400,
+            jsonify({"status": "ignored", "message": "Not a post_call_data event"}),
+            200,
         )
 
+    transcript = data.get("transcript")
+    if not transcript:
+        return jsonify({"status": "error", "message": "Missing transcript"}), 400
+
+    caller = data.get("caller") or "Unbekannt"
+    today = datetime.now().strftime("%d.%m.%Y")
+
     try:
+        print("📞 Post-Call Event empfangen")
+        print("👤 Caller:", caller)
+        print("📝 Transcript:", transcript[:80], "...")
+
         scope = [
             "https://spreadsheets.google.com/feeds",
             "https://www.googleapis.com/auth/drive",
@@ -109,8 +118,6 @@ def save_transcript():
             )
 
     except Exception as e:
-        # print("Allgemeiner Fehler:", type(e), "-", str(e))
-        # print("Fehler beim Speichern im Google Sheet:", e)
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
 
