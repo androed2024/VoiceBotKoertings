@@ -59,7 +59,9 @@ def save_transcript():
     call_data = data.get("call", {})
     transcript = call_data.get("transcript", "")
     call_id = call_data.get("call_id", "unknown")
-    timestamp = datetime.now().isoformat()
+    now = datetime.now()
+    datum = now.strftime("%Y-%m-%d")
+    zeit = now.strftime("%H:%M")
 
     if not transcript:
         return jsonify({"status": "error", "message": "Transcript fehlt"}), 400
@@ -78,7 +80,7 @@ def save_transcript():
         sheet = client.open_by_key(google_sheet_id).sheet1
 
         # Schreibe Zeile
-        sheet.append_row([timestamp, call_id, transcript])
+        sheet.append_row([datum, zeit, call_id, transcript])
         print("✅ Transkript gespeichert")
 
         return jsonify({"status": "success"}), 200
