@@ -79,8 +79,10 @@ def save_transcript():
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
         client = gspread.authorize(creds)
         sheet = client.open_by_key(google_sheet_id).sheet1
-
         sheet.append_row([today, caller, transcript])
+        print(
+            "✅ Zeile ins Google Sheet geschrieben:", [today, caller, transcript[:80]]
+        )
         return jsonify({"status": "success", "message": "Transcript gespeichert"}), 200
 
     except gspread.exceptions.APIError as e:
@@ -117,8 +119,8 @@ def save_transcript():
                 ),
                 500,
             )
-
     except Exception as e:
+        print("❌ Allgemeiner Fehler:", type(e), "-", str(e))
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
 
