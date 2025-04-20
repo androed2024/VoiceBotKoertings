@@ -68,7 +68,7 @@ def save_transcript():
 
     try:
         print("📞 Call beendet – speichere Transkript")
-        print("▶️ Daten für Google Sheet:", call_id, timestamp, transcript[:80])
+        print("▶️ Daten für Google Sheet:", datum, zeit, call_id, transcript[:80])
 
         # Authentifizierung
         scope = [
