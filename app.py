@@ -8,8 +8,6 @@ from oauth2client.service_account import ServiceAccountCredentials
 import traceback
 import json
 
-# trigger redeploy
-
 load_dotenv()
 app = Flask(__name__)
 
@@ -111,10 +109,15 @@ def save_transcript():
             )
 
     except Exception as e:
-        print("❌ Allgemeiner Fehler:", type(e), "-", str(e))
-        print("❌ Fehler beim Speichern im Google Sheet:", e)
+        # print("Allgemeiner Fehler:", type(e), "-", str(e))
+        # print("Fehler beim Speichern im Google Sheet:", e)
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/health", methods=["GET"])
+def health_check():
+    return "OK", 200
 
 
 if __name__ == "__main__":
