@@ -53,25 +53,22 @@ def save_transcript():
     data = request.json
     print("📥 Eingehender Payload von Retell:", data)
 
-    # Nur reagieren, wenn es ein Post-Call-Event ist
-    if data.get("event") != "post_call_data":
-        return (
-            jsonify({"status": "ignored", "message": "Not a post_call_data event"}),
-            200,
-        )
+    if data.get("event") != "call_ended":
+        return jsonify({"status": "ignored", "message": "Kein call_ended Event"}), 200
 
-    transcript = data.get("transcript")
+    call_data = data.get("call", {})
+    transcript = call_data.get("transcript", "")
+    call_id = call_data.get("call_id", "unknown")
+    timestamp = datetime.now().isoformat()
+
     if not transcript:
-        return jsonify({"status": "error", "message": "Missing transcript"}), 400
-
-    caller = data.get("caller") or "Unbekannt"
-    today = datetime.now().strftime("%d.%m.%Y")
+        return jsonify({"status": "error", "message": "Transcript fehlt"}), 400
 
     try:
-        print("📞 Post-Call Event empfangen")
-        print("👤 Caller:", caller)
-        print("📝 Transcript:", transcript[:80], "...")
+        print("📞 Call beendet – speichere Transkript")
+        print("▶️ Daten für Google Sheet:", call_id, timestamp, transcript[:80])
 
+        # Authentifizierung
         scope = [
             "https://spreadsheets.google.com/feeds",
             "https://www.googleapis.com/auth/drive",
@@ -80,11 +77,11 @@ def save_transcript():
         client = gspread.authorize(creds)
         sheet = client.open_by_key(google_sheet_id).sheet1
 
-        print("▶️ Daten für Google Sheet:", today, caller, transcript[:80])
-        sheet.append_row([today, caller, transcript])
-        print("✅ Zeile erfolgreich in Google Sheet gespeichert")
+        # Schreibe Zeile
+        sheet.append_row([timestamp, call_id, transcript])
+        print("✅ Transkript gespeichert")
 
-        return jsonify({"status": "success", "message": "Transcript gespeichert"}), 200
+        return jsonify({"status": "success"}), 200
 
     except gspread.exceptions.APIError as e:
         error_str = str(e)
