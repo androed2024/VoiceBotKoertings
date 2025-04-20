@@ -51,6 +51,11 @@ def send_sms():
 @app.route("/save-transcript", methods=["POST"])
 def save_transcript():
     data = request.json
+    print("📥 Eingehender Payload von Retell:", data)
+
+
+def save_transcript():
+    data = request.json
 
     # Nur reagieren, wenn es ein Post-Call-Event ist
     if data.get("event") != "post_call_data":
