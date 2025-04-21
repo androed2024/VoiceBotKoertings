@@ -29,8 +29,20 @@ def send_sms():
     to = data.get("to")
     message = data.get("message")
 
+    print("📩 Eingehende SMS-Anfrage")
+    print("➡️ An:", to)
+    print("✉️ Nachricht:", message)
+    print("📤 Von (Twilio):", from_number)
+
+    # Check auf notwendige Daten
+    if not to or not message:
+        print("❌ Fehler: Empfänger oder Nachricht fehlt")
+        return jsonify({"status": "error", "message": "Missing 'to' or 'message'"}), 400
+
+    # Mock-Modus wenn keine Twilio-Daten vorhanden
     if not account_sid or not auth_token or not from_number:
-        print("⚠️  Twilio-Daten fehlen – SMS wird nicht versendet.")
+        print("⚠️  Twilio-Daten fehlen – SMS wird **nicht** versendet.")
+        print(f"📦 Simulation: SMS an {to}: {message}")
         return (
             jsonify(
                 {"status": "mock", "message": f"(Simulation) SMS an {to}: {message}"}
@@ -38,13 +50,13 @@ def send_sms():
             200,
         )
 
-    if not to or not message:
-        return jsonify({"status": "error", "message": "Missing 'to' or 'message'"}), 400
-
+    # Echter Versand über Twilio
     try:
         sms = client.messages.create(to=to, from_=from_number, body=message)
+        print("✅ SMS erfolgreich versendet! SID:", sms.sid)
         return jsonify({"status": "success", "sid": sms.sid}), 200
     except Exception as e:
+        print("❌ Fehler beim Senden der SMS:", str(e))
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
