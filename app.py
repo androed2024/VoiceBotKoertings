@@ -31,7 +31,12 @@ def send_sms():
 
     print("📨 SMS-Anfrage empfangen:")
     print("👉 An:", to)
+    
+    if message:
     print(f"📝 Nachricht (gekürzt): {message[:60]}…")
+    else:
+    print("📝 Nachricht fehlt oder ist leer.")
+
 
     if not to or not message:
         print("❌ Fehler: 'to' oder 'message' fehlt im Request.")
