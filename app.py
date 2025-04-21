@@ -31,14 +31,12 @@ def send_sms():
 
     print("📨 SMS-Anfrage empfangen:")
     print("👉 An:", to)
-    print("📝 Nachricht:", message)
+    print(f"📝 Nachricht (gekürzt): {message[:60]}…")
 
-    # Prüfe ob Daten fehlen
     if not to or not message:
         print("❌ Fehler: 'to' oder 'message' fehlt im Request.")
         return jsonify({"status": "error", "message": "Missing 'to' or 'message'"}), 400
 
-    # Prüfe, ob Twilio-Daten gesetzt sind
     if (
         not account_sid
         or not auth_token
@@ -66,20 +64,12 @@ def send_sms():
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
 
-    # Echter Versand über Twilio
-    try:
-        sms = client.messages.create(to=to, from_=from_number, body=message)
-        print("✅ SMS erfolgreich versendet! SID:", sms.sid)
-        return jsonify({"status": "success", "sid": sms.sid}), 200
-    except Exception as e:
-        print("❌ Fehler beim Senden der SMS:", str(e))
-        return jsonify({"status": "error", "message": str(e)}), 500
-
 
 @app.route("/save-transcript", methods=["POST"])
 def save_transcript():
     data = request.json
-    print("📥 Eingehender Payload von Retell:", data)
+
+    # print("📥 Eingehender Payload von Retell:", data)
 
     if data.get("event") != "call_ended":
         return jsonify({"status": "ignored", "message": "Kein call_ended Event"}), 200
