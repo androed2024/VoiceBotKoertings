@@ -7,6 +7,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import traceback
 import json
+import re
 
 load_dotenv()
 app = Flask(__name__)
@@ -21,52 +22,6 @@ client = Client(account_sid, auth_token)
 google_sheet_id = os.getenv("GOOGLE_SHEET_ID")
 credentials_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
 creds_dict = json.loads(credentials_json)
-
-
-@app.route("/send-sms", methods=["POST"])
-def send_sms():
-    data = request.json
-    to = data.get("to")
-    message = data.get("message")
-
-    print("📨 SMS-Anfrage empfangen:")
-    print("👉 An:", to)
-
-    if message:
-        print(f"📝 Nachricht (gekürzt): {message[:60]}…")
-    else:
-        print("📝 Nachricht fehlt oder ist leer.")
-
-    if not to or not message:
-        print("❌ Fehler: 'to' oder 'message' fehlt im Request.")
-        return jsonify({"status": "error", "message": "Missing 'to' or 'message'"}), 400
-
-    if (
-        not account_sid
-        or not auth_token
-        or not from_number
-        or account_sid == "placeholder"
-        or auth_token == "placeholder"
-    ):
-        print("⚠️  Twilio-Daten fehlen oder Platzhalter aktiv – führe Simulation aus.")
-        print(f"📵 (Simulation) SMS an {to}: {message}")
-        return (
-            jsonify(
-                {"status": "mock", "message": f"(Simulation) SMS an {to}: {message}"}
-            ),
-            200,
-        )
-
-    try:
-        print("📡 Versende SMS über Twilio …")
-        sms = client.messages.create(to=to, from_=from_number, body=message)
-        print("✅ SMS erfolgreich gesendet:", sms.sid)
-        return jsonify({"status": "success", "sid": sms.sid}), 200
-
-    except Exception as e:
-        print("❌ Fehler beim Senden der SMS:", str(e))
-        traceback.print_exc()
-        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route("/save-transcript", methods=["POST"])
@@ -145,6 +100,111 @@ def save_transcript():
         print("❌ Allgemeiner Fehler:", type(e), "-", str(e))
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/check-mobile", methods=["POST"])
+def check_mobile():
+    data = request.json
+    caller = data.get("caller")
+
+    # ✅ 2. F‑String korrekt einsetzen – Variable in geschweifte Klammern
+    print(f"📞 Eingehende Nummer: {caller}")
+
+    # --- Kein Caller ------------------------------------------------------
+    if not caller:
+        print("🚫 Keine Nummer im Header/Caller-Objekt sichtbar")
+        return jsonify({"status": "no_number", "message": "Keine Nummer sichtbar"}), 200
+
+    # --- Mobilnummer ------------------------------------------------------
+    if caller.startswith(("+4915", "+4916", "+4917")):
+        print("✅ Mobilnummer erkannt")
+        return jsonify({"status": "mobile", "message": "Mobilnummer erkannt"}), 200
+
+    # --- Festnetz / unbekannt --------------------------------------------
+    print("ℹ️  Festnetz‑ oder unbekannte Nummer")
+    return jsonify({"status": "not_mobile", "message": "Keine Mobilnummer"}), 200
+
+
+@app.route("/send-sms", methods=["POST"])
+def send_sms():
+    data = request.json
+    to = data.get("to")
+    message = data.get("message")
+
+    print("📨 SMS-Anfrage empfangen:")
+    print("👉 An:", to)
+
+    if message:
+        print(f"📝 Nachricht (gekürzt): {message[:60]}…")
+    else:
+        print("📝 Nachricht fehlt oder ist leer.")
+
+    if not to or not message:
+        print("❌ Fehler: 'to' oder 'message' fehlt im Request.")
+        return jsonify({"status": "error", "message": "Missing 'to' or 'message'"}), 400
+
+    if (
+        not account_sid
+        or not auth_token
+        or not from_number
+        or account_sid == "placeholder"
+        or auth_token == "placeholder"
+    ):
+        print("⚠️  Twilio-Daten fehlen oder Platzhalter aktiv – führe Simulation aus.")
+        print(f"📵 (Simulation) SMS an {to}: {message}")
+        return (
+            jsonify(
+                {"status": "mock", "message": f"(Simulation) SMS an {to}: {message}"}
+            ),
+            200,
+        )
+
+    try:
+        print("📡 Versende SMS über Twilio …")
+        sms = client.messages.create(to=to, from_=from_number, body=message)
+        print("✅ SMS erfolgreich gesendet:", sms.sid)
+        return jsonify({"status": "success", "sid": sms.sid}), 200
+
+    except Exception as e:
+        print("❌ Fehler beim Senden der SMS:", str(e))
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/parse-phone", methods=["POST"])
+def parse_phone():
+    """
+    Erwartet:  {"last_user_message": "Meine Nummer ist 0176 1234567"}
+    Antwort:   {"status": "ok", "mobile": "+491761234567"}
+               {"status": "error"}                     (wenn nichts gefunden)
+    """
+    data = request.json or {}
+    text = data.get("last_user_message", "")
+
+    # 1️⃣  Ursprüngliche User‑Eingabe loggen
+    print(f"🗣️  User‑Text: {text}")
+
+    # 2️⃣  Regex (simple DE‑Handy‐Variante, Leer-/Bindestriche tolerant)
+    match = re.search(r"(?:\+?49[ \-]?)?1[5-7]\d[ \-]?\d{6,}", text)
+    if match:
+        raw = match.group()  # z.B. "0176 1234567"
+        digits = re.sub(r"\D", "", raw)  # nur Ziffern -> "01761234567"
+
+        # 3️⃣  Ländervorwahl bereinigen
+        if digits.startswith("0"):
+            digits = digits[1:]  # führende 0 weg
+        if not digits.startswith("49"):
+            digits = "49" + digits  # ggf. 49 ergänzen
+
+        mobile = f"+{digits}"
+        # 4️⃣  🚀  Hier dein gewünschtes Print‑Statement
+        print(f"📲 Erkannte Mobilnummer: {mobile}")
+
+        return jsonify({"status": "ok", "mobile": mobile}), 200
+
+    # ---  Kein Treffer ----------------------------------------------------
+    print("🚫  Keine gültige Mobilnummer erkannt")
+    return jsonify({"status": "error"}), 200
 
 
 @app.route("/health", methods=["GET"])
