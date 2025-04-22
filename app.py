@@ -1,8 +1,6 @@
-import os
-import sys
 import re
 import json
-import logging
+import logging, os, sys
 from logging.handlers import RotatingFileHandler
 from datetime import datetime
 from flask import Flask, request, jsonify
@@ -14,18 +12,32 @@ import traceback
 
 # ─────────────────────────────── logging setup ────────────────────────────────
 LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG").upper()  # INFO in Prod
-LOG_FORMAT = "% (asctime)s | %(levelname)-8s | %(name)s: %(message)s"
+LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+formatter = logging.Formatter(LOG_FORMAT, "%Y-%m-%d %H:%M:%S")
 
-logging.basicConfig(
-    level=LOG_LEVEL,
-    format=LOG_FORMAT,
-    handlers=[logging.StreamHandler(sys.stdout)],  # Render‑Dashboard
-)
-file_handler = RotatingFileHandler("app.log", maxBytes=5_000_000, backupCount=3)
-file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
-logging.getLogger().addHandler(file_handler)
 
-logger = logging.getLogger("voicebot")
+def setup_logging() -> logging.Logger:
+    logger = logging.getLogger()  # root logger
+    logger.setLevel(os.getenv("LOG_LEVEL", "INFO").upper())
+
+    fmt = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+    formatter = logging.Formatter(fmt, "%Y-%m-%d %H:%M:%S")
+
+    # Stream‑Handler (Konsole)
+    sh = logging.StreamHandler(sys.stdout)
+    sh.setFormatter(formatter)
+    logger.addHandler(sh)
+
+    # Datei‑Handler (optional)
+    fh = RotatingFileHandler("app.log", maxBytes=1_000_000, backupCount=3)
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+
+    logger.propagate = False  # verhindert doppelte Logs
+    return logger
+
+
+logger = setup_logging()
 
 # ─────────────────────────────── env / clients ────────────────────────────────
 load_dotenv()
