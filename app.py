@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from zoneinfo import ZoneInfo
 from twilio.rest import Client
 from dotenv import load_dotenv
 import os, json, re, traceback
@@ -9,9 +10,6 @@ from oauth2client.service_account import ServiceAccountCredentials
 # -------------------  ENV einlesen und Flask initialisieren  ------------------
 load_dotenv()  # 1️⃣ .env
 app = Flask(__name__)  # 2️⃣ Flask‑App
-
-# -------------------  Logging nur via print/Render‑Logs  ----------------------
-# (keine File‑Handler nötig)
 
 
 # Twilio-Konfiguration
@@ -38,7 +36,7 @@ def save_transcript():
     call_data = data.get("call", {})
     transcript = call_data.get("transcript", "")
     call_id = call_data.get("call_id", "unknown")
-    now = datetime.now()
+    now = datetime.now(ZoneInfo("Europe/Berlin"))  # deutsche Zeit
     datum = now.strftime("%Y-%m-%d")
     zeit = now.strftime("%H:%M")
 
