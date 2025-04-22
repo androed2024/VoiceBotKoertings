@@ -36,25 +36,17 @@ CALLER_NUMBERS = {}
 @app.route("/start-call", methods=["POST"])
 def start_call():
     data = request.json or {}
-
-    if not data:
-        print("⚠️ Kein JSON-Daten empfangen")
-    if "call_id" not in data:
-        print("⚠️ call_id fehlt")
-    if "caller" not in data:
-        print("⚠️ caller fehlt")
-
     call_id = data.get("call_id")
-    phone = data.get("caller", None)
+    caller = data.get("caller")
 
-    print(f"📞 Start Call: {call_id} – Nummer: {phone}")
+    print("📩 Eingehender POST /start-call:", request.json)
 
-    if call_id and phone:
-        CALLER_NUMBERS[call_id] = phone
-        print(f"✅ Nummer zwischengespeichert: {CALLER_NUMBERS}")
-        return jsonify({"status": "ok"}), 200
+    if not call_id or not caller:
+        print("⚠️ call_id oder caller fehlt")
+        return "Missing fields", 400
 
-    return jsonify({"status": "error", "message": "call_id oder Nummer fehlt"}), 400
+    print(f"📞 Start Call: {call_id} – Nummer: {caller}")
+    return "OK", 200
 
 
 @app.route("/save-transcript", methods=["POST"])
