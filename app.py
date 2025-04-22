@@ -23,12 +23,27 @@ google_sheet_id = os.getenv("GOOGLE_SHEET_ID")
 credentials_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
 creds_dict = json.loads(credentials_json)
 
+try:
+    creds_dict = json.loads(credentials_json)
+except Exception as e:
+    print("❌ Fehler beim Parsen von GOOGLE_SERVICE_ACCOUNT_JSON:", str(e))
+    creds_dict = {}
+
+
 CALLER_NUMBERS = {}
 
 
 @app.route("/start-call", methods=["POST"])
 def start_call():
     data = request.json or {}
+
+    if not data:
+        print("⚠️ Kein JSON-Daten empfangen")
+    if "call_id" not in data:
+        print("⚠️ call_id fehlt")
+    if "caller" not in data:
+        print("⚠️ caller fehlt")
+
     call_id = data.get("call_id")
     phone = data.get("caller", None)
 
