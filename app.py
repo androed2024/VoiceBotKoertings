@@ -1,45 +1,24 @@
 from flask import Flask, request, jsonify
 from twilio.rest import Client
 from dotenv import load_dotenv
-import os
+import os, json, re, traceback
 from datetime import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-import traceback
-import json
-import re
 
-import logging
-from logging.handlers import RotatingFileHandler
-import os, sys  # (du hast os schon; nur der Vollständigkeit halber)
+# -------------------  ENV einlesen und Flask initialisieren  ------------------
+load_dotenv()  # 1️⃣ .env
+app = Flask(__name__)  # 2️⃣ Flask‑App
 
-LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG").upper()  # z.B. "INFO" in Prod
-LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s: %(message)s"
+# -------------------  Logging nur via print/Render‑Logs  ----------------------
+# (keine File‑Handler nötig)
 
-# 1️⃣ Root‑Logger konfigurieren
-# logging.basicConfig(
-#    level=LOG_LEVEL,
-#    format=LOG_FORMAT,
-#    handlers=[
-#        logging.StreamHandler(sys.stdout)                   # geht ins Render‑Logs‑Tab
-#    ],
-# )
-
-# 2️⃣ Optional: zusätzlich lokale Rotating‑Datei (max 5 MB × 3 Backups)
-# file_handler = RotatingFileHandler("app.log", maxBytes=5_000_000, backupCount=3)
-# file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
-# logging.getLogger().addHandler(file_handler)
-
-# logger = logging.getLogger("voicebot")  # ab hier logger.<level> nutzen
-
-# load_dotenv()
-# app = Flask(__name__)
 
 # Twilio-Konfiguration
 account_sid = os.getenv("TWILIO_ACCOUNT_SID")
 auth_token = os.getenv("TWILIO_AUTH_TOKEN")
 from_number = os.getenv("TWILIO_FROM_NUMBER")
-client = Client(account_sid, auth_token)
+twilio_client = Client(account_sid, auth_token)
 
 # Google Sheet-Konfiguration
 google_sheet_id = os.getenv("GOOGLE_SHEET_ID")
@@ -76,8 +55,8 @@ def save_transcript():
             "https://www.googleapis.com/auth/drive",
         ]
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-        client = gspread.authorize(creds)
-        sheet = client.open_by_key(google_sheet_id).sheet1
+        gs_client = gspread.authorize(creds)
+        sheet = gs_client.open_by_key(google_sheet_id).sheet1
 
         # Schreibe Zeile
         sheet.append_row([datum, zeit, call_id, transcript])
@@ -184,7 +163,7 @@ def send_sms():
 
     try:
         print("📡 Versende SMS über Twilio …")
-        sms = client.messages.create(to=to, from_=from_number, body=message)
+        sms = twilio_client.messages.create(to=to, from_=from_number, body=message)
         print("✅ SMS erfolgreich gesendet:", sms.sid)
         return jsonify({"status": "success", "sid": sms.sid}), 200
 
