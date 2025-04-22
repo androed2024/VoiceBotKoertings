@@ -23,31 +23,50 @@ google_sheet_id = os.getenv("GOOGLE_SHEET_ID")
 credentials_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
 creds_dict = json.loads(credentials_json)
 
+CALLER_NUMBERS = {}
+
+
+@app.route("/start-call", methods=["POST"])
+def start_call():
+    data = request.json or {}
+    call_id = data.get("call_id")
+    phone = data.get("caller", None)
+
+    print(f"📞 Start Call: {call_id} – Nummer: {phone}")
+
+    if call_id and phone:
+        CALLER_NUMBERS[call_id] = phone
+        print(f"✅ Nummer zwischengespeichert: {CALLER_NUMBERS}")
+        return jsonify({"status": "ok"}), 200
+
+    return jsonify({"status": "error", "message": "call_id oder Nummer fehlt"}), 400
+
 
 @app.route("/save-transcript", methods=["POST"])
 def save_transcript():
     data = request.json
-
-    # print("📥 Eingehender Payload von Retell:", data)
-
     if data.get("event") != "call_ended":
         return jsonify({"status": "ignored", "message": "Kein call_ended Event"}), 200
 
     call_data = data.get("call", {})
     transcript = call_data.get("transcript", "")
     call_id = call_data.get("call_id", "unknown")
-    now = datetime.now(ZoneInfo("Europe/Berlin"))  # deutsche Zeit
+
+    now = datetime.now(ZoneInfo("Europe/Berlin"))
     datum = now.strftime("%Y-%m-%d")
     zeit = now.strftime("%H:%M")
 
     if not transcript:
         return jsonify({"status": "error", "message": "Transcript fehlt"}), 400
 
-    try:
-        print("📞 Call beendet – speichere Transkript")
-        print("▶️ Daten für Google Sheet:", datum, zeit, call_id, transcript[:80])
+    # 🆕 Versuche Nummer aus globalem Store zu holen
+    caller_phone = CALLER_NUMBERS.get(call_id, "unknown")
 
-        # Authentifizierung
+    print("📞 Call beendet – speichere Transkript")
+    print("▶️ Daten für Google Sheet:", datum, zeit, caller_phone, transcript[:80])
+
+    try:
+        # Authentifizierung & Schreiben ins Sheet
         scope = [
             "https://spreadsheets.google.com/feeds",
             "https://www.googleapis.com/auth/drive",
@@ -56,48 +75,17 @@ def save_transcript():
         gs_client = gspread.authorize(creds)
         sheet = gs_client.open_by_key(google_sheet_id).sheet1
 
-        # Schreibe Zeile
-        sheet.append_row([datum, zeit, call_id, transcript])
+        # 🧠 Jetzt mit Telefonnummer
+        sheet.append_row([datum, zeit, caller_phone, transcript])
         print("✅ Transkript gespeichert")
+
+        # Optional: Eintrag aus Cache löschen
+        CALLER_NUMBERS.pop(call_id, None)
 
         return jsonify({"status": "success"}), 200
 
-    except gspread.exceptions.APIError as e:
-        error_str = str(e)
-        print("❌ Google Sheets API Fehler:", error_str)
-
-        if "403" in error_str:
-            return (
-                jsonify(
-                    {
-                        "status": "forbidden",
-                        "message": "Zugriff verweigert – bitte Freigabe des Sheets für den Service Account prüfen.",
-                    }
-                ),
-                403,
-            )
-        elif "404" in error_str:
-            return (
-                jsonify(
-                    {
-                        "status": "not_found",
-                        "message": "Sheet nicht gefunden – bitte die SHEET ID prüfen.",
-                    }
-                ),
-                404,
-            )
-        else:
-            return (
-                jsonify(
-                    {
-                        "status": "error",
-                        "message": "Unbekannter Google Sheets API Fehler",
-                    }
-                ),
-                500,
-            )
     except Exception as e:
-        print("❌ Allgemeiner Fehler:", type(e), "-", str(e))
+        print("❌ Fehler beim Speichern:", str(e))
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
 
